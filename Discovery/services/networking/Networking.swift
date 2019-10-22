@@ -48,85 +48,10 @@ class Networking {
     private var errorMessage = ""
     
     
-    
-    
     // MARK: - Request Tasks
     
-    public func requestData(url path: String,
-                     method: NetworkingHTTPMethod = .post,
-                     headers: RequestHeaders? = nil,
-                     parameters: RequestParameters? = nil,
-                     completion: @escaping CompletionHandler)
-    {
-        
-        dataTask?.cancel()
-        
-        guard
-            var urlComponent = URLComponents(string: path)
-            else {
-                let err = NError(type: .invalidUrl(url: path))
-                let responseResult: RequestResult<NData, NError> = .failure(err)
-                completion(responseResult)
-                return
-        }
-        
-        // setup encoded queries
-        if method == .get {
-            if let params = parameters {
-                var queries: [String] = []
-                params.forEach({ (key: String, value: Any) in
-                    let escapedKey = "\(key)".addingPercentEncoding(withAllowedCharacters: .urlQueryValueAllowed) ?? ""
-                    let escapedValue = "\(value)".addingPercentEncoding(withAllowedCharacters: .urlQueryValueAllowed) ?? ""
-                    queries.append(escapedKey + "=" + escapedValue)
-                })
-                
-                urlComponent.query = queries.joined(separator: "&")
-            }
-        }
-        
-        guard
-            let url = urlComponent.url
-            else {
-                let err = NError(type: .invalidUrl(url: path))
-                let responseResult: RequestResult<NData, NError> = .failure(err)
-                completion(responseResult)
-                return
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = method.rawValue
-        
-        if let headers = headers {
-            for header in headers {
-                request.setValue(header.value, forHTTPHeaderField: header.key)
-            }
-        }
-        
-        // setup post params
-        if method != .get {
-            if let params = parameters {
-                request.httpBody = params.percentEscaped().data(using: .utf8)
-            }
-        }
-        
-        NDebug.shout("\(TAG) Headers", headers as Any)
-        NDebug.shout("\(TAG) Params", parameters as Any)
-        NDebug.shout("\(TAG) Request", request)
-        //dump(request)
-        
-        dataTask = defaultSession.dataTask(with: request) {
-            data, response, error in
-            defer { self.dataTask = nil }
-            self.handleNetworkingResult(data, response, error, completion)
-        }
-        
-        dataTask?.resume()
-    }
     
-    
-    
-    
-    public func requestGet(withUrl path: String,
+    func requestGet(withUrl path: String,
                     queries: String? = nil,
                     headers: RequestHeaders? = [:],
                     completion: @escaping CompletionHandler)
@@ -181,8 +106,6 @@ class Networking {
     }
     
     
-    
-    
     func requestPost(url path: String,
                      headers: RequestHeaders,
                      parameters: RequestParameters? = nil,
@@ -224,8 +147,6 @@ class Networking {
         
         dataTask?.resume()
     }
-    
-    
     
     
     func requestWithMultipart(url path: String,
@@ -279,9 +200,56 @@ class Networking {
     }
     
     
+    func requestData(url path: String,
+                     method: NetworkingHTTPMethod = .post,
+                     headers: RequestHeaders? = nil,
+                     parameters: RequestParameters? = nil,
+                     completion: @escaping CompletionHandler)
+    {
+        
+        dataTask?.cancel()
+        
+        guard
+            let urlComponent = URLComponents(string: path),
+            let url = urlComponent.url
+            else {
+                let err = NError(type: .invalidUrl(url: path))
+                let responseResult: RequestResult<NData, NError> = .failure(err)
+                
+                completion(responseResult)
+                
+                return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = method.rawValue
+        
+        if let headers = headers {
+            for header in headers {
+                request.setValue(header.value, forHTTPHeaderField: header.key)
+            }
+        }
+        
+        if let params = parameters {
+            request.httpBody = params.percentEscaped().data(using: .utf8)
+        }
+        
+        NDebug.shout("\(TAG) Request", request)
+        //dump(request)
+        
+        dataTask = defaultSession.dataTask(with: request) {
+            data, response, error in
+            defer { self.dataTask = nil }
+            self.handleNetworkingResult(data, response, error, completion)
+        }
+        
+        dataTask?.resume()
+    }
+    
     
     
     // MARK: - Private
+    
     
     fileprivate func handleNetworkingResult(_ data: Data?,
                                             _ response: URLResponse?,
@@ -323,8 +291,6 @@ class Networking {
     }
     
     
-    
-    
     fileprivate func createDataBody(withParameters params: RequestParameters?,
                                     media: [Media]?,
                                     boundary: String) -> Data {
@@ -354,16 +320,13 @@ class Networking {
     }
     
     
-    
-    
     fileprivate func generateBoundaryString() -> String {
         return "Boundary-\(UUID().uuidString)"
     }
     
     
-    
-    
     // MARK: - Request Body Model
+    
     
     struct TextPlainBody {
         let key: String
@@ -376,8 +339,6 @@ class Networking {
             self.mimeType = "text/plain"
         }
     }
-    
-    
     
     
     struct Media {
@@ -399,9 +360,8 @@ class Networking {
 }
 
 
-
-
 // MARK: - Extensions
+
 
 extension String {
     func isValidURL() throws -> URL? {
